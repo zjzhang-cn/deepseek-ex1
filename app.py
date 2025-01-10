@@ -1,6 +1,7 @@
 from openai import OpenAI
 import os
 
+
 def send_messages(messages):
     response = client.chat.completions.create(
         model="deepseek-chat",
@@ -16,7 +17,7 @@ def send_messages(messages):
 
 
 client = OpenAI(
-    api_key=os.environ.get('KEY'),
+    api_key=os.environ.get("KEY"),
     base_url="https://api.deepseek.com",
 )
 
@@ -87,13 +88,12 @@ tools = [
                     "status": {
                         "type": "string",
                         "description": "灯的状态，如开、关等",
-                    },                   
+                    },
                 },
-                "required": ["position","status"],
+                "required": ["position", "status"],
             },
         },
     },
-   
 ]
 
 
@@ -110,29 +110,30 @@ def call_user(phone_number: str):
 def select_protocol(position: str):
     print(f"==> 调用select_protocol函数，参数position={position}")
     return {"position": position, "protocol": "T1"}
-def light_switch(position: str,status:str):
+
+
+def light_switch(position: str, status: str):
     print(f"==> 调用light_switch函数，参数position={position},status={status}")
     return {"position": position, "status": status}
 
+
 messages = []
-count= 1
+count = 1
 while True:
     msg = input(f"请输入您的问题 #{count}：")
     messages.append({"role": "user", "content": msg})
     message = send_messages(messages)
     if message.tool_calls:
-        count= 1
+        count = 1
         messages = []
         for tool in message.tool_calls:
-            print(
-                f"程序执行>\t 函数名:{tool.function.name}, 参数:{tool.function.arguments}"
-            )
+            print(f"程序执行>\t 函数名:{tool.function.name}, 参数:{tool.function.arguments}")
             func1_name = tool.function.name
             func1_args = tool.function.arguments
             func1_out = eval(f"{func1_name}(**{func1_args})")
             print(f"程序执行>\t 函数返回值:{func1_out}")
         print(f"assistant>\t {message.content}")
     else:
-        count=count+1
+        count = count + 1
         messages.append({"role": "assistant", "content": message.content})
         print(f"assistant>\t {message.content}")
