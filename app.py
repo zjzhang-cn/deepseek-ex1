@@ -2,6 +2,7 @@ from openai import OpenAI
 import os
 
 
+# 发送消息到DeepSeek API并获取响应
 def send_messages(messages):
     """
     发送消息到DeepSeek API并获取响应
@@ -9,11 +10,15 @@ def send_messages(messages):
     :return: 返回API的响应消息对象
     """
     response = client.chat.completions.create(
-        model="deepseek-chat",
+        model="qwen2.5:14b",
+        # model="MFDoom/deepseek-coder-v2-tool-calling:16b",
+        # model="llama3-groq-tool-use:8b",
+        # model="deepseek-chat",
         messages=messages,
         tools=tools,
+        tool_choice="auto",
         temperature=0,
-        max_tokens=100,
+        # max_tokens=100,
         top_p=1.0,
         n=1,
         stop=None,
@@ -21,12 +26,16 @@ def send_messages(messages):
     return response.choices[0].message
 
 
+# 初始化OpenAI客户端
 client = OpenAI(
-    api_key=os.environ.get("KEY"),  # 从环境变量获取API密钥
-    base_url="https://api.deepseek.com",  # DeepSeek API地址
+    api_key=os.environ.get("KEY") or "key",  # 从环境变量获取API密钥
+    # base_url="https://api.deepseek.com",  # DeepSeek API地址
+    base_url="http://127.0.0.1:11434/v1",  # DeepSeek API地址
 )
 
+# 定义工具列表
 tools = [
+    # 获取天气信息的工具
     {
         "type": "function",
         "function": {
@@ -44,6 +53,7 @@ tools = [
             },
         },
     },
+    # 呼叫用户电话的工具
     {
         "type": "function",
         "function": {
@@ -53,31 +63,33 @@ tools = [
                 "type": "object",
                 "properties": {
                     "phone_number": {
-                        "type": "string",
-                        "description": "电话号码，例如 +86 13611111111",
+                        "type": "number",
+                        "description": "电话号码。",
                     }
                 },
                 "required": ["phone_number"],
             },
         },
     },
+    # 选择MRI扫描协议的工具
     {
         "type": "function",
         "function": {
             "name": "select_protocol",
-            "description": "选择病人进行MRI检查的协议",
+            "description": "选择病人进行MRI检查的协议，如果用户输入中不带身体部位，则询问用户要扫描的问题，不许使用默认值。",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "position": {
                         "type": "string",
-                        "description": "扫描的位置，如头部、胸部、腹部等",
+                        "description": "想要扫描的身体的位置。",
                     }
                 },
                 "required": ["position"],
             },
         },
     },
+    # 控制灯光开关的工具
     {
         "type": "function",
         "function": {
@@ -102,6 +114,7 @@ tools = [
 ]
 
 
+# 获取指定地区的天气信息
 def get_weather(location: str):
     """
     获取指定地区的天气信息
@@ -109,9 +122,10 @@ def get_weather(location: str):
     :return: 包含位置和天气信息的字典
     """
     print(f"==> 调用get_weather函数，参数location={location}")
-    return {"location": location, "weather": "晴"}
+    return f"location:{location} weather:晴 temp:25"
 
 
+# 呼叫指定电话号码
 def call_user(phone_number: str):
     """
     呼叫指定电话号码
@@ -119,9 +133,10 @@ def call_user(phone_number: str):
     :return: 包含电话号码和呼叫状态的字典
     """
     print(f"==> 调用call_user函数，参数phone_number={phone_number}")
-    return {"phone_number": phone_number, "status": "calling"}
+    return f"phone_number:{phone_number} status:calling"
 
 
+# 为指定身体部位选择MRI扫描协议
 def select_protocol(position: str):
     """
     为指定身体部位选择MRI扫描协议
@@ -129,9 +144,10 @@ def select_protocol(position: str):
     :return: 包含部位和协议信息的字典
     """
     print(f"==> 调用select_protocol函数，参数position={position}")
-    return {"position": position, "protocol": "T1"}
+    return f"position:{position}, protocol:T1"
 
 
+# 控制指定位置的灯光状态
 def light_switch(position: str, status: str):
     """
     控制指定位置的灯光状态
@@ -140,26 +156,52 @@ def light_switch(position: str, status: str):
     :return: 包含位置和状态的字典
     """
     print(f"==> 调用light_switch函数，参数position={position},status={status}")
-    return {"position": position, "status": status}
+    return f"位置:{position} 状态:{status}"
 
 
-messages = []  # 存储对话历史
 count = 1  # 对话轮次计数器
+
+
+# 初始化新的对话消息
+def _new_message():
+    return [
+        {
+            "role": "system",
+            "content": "你是一个智能助手.你的回答必须使用中文,如果回答英文，你将会被禁言!",
+        }
+    ]
+
+
+messages = _new_message()  # 对话历史
+
 while True:  # 主消息处理循环
     msg = input(f"请输入您的问题 #{count}：")  # 获取用户输入
+    if msg == "exit":  # 如果用户输入exit
+        break
+    if msg == "reset":  # 如果用户输入reset
+        messages = _new_message()  # 重置对话历史
+        count = 1
+        continue
     messages.append({"role": "user", "content": msg})  # 将用户消息加入对话历史
     message = send_messages(messages)  # 发送消息并获取响应
+    count += 1  # 增加对话轮次
     if message.tool_calls:  # 如果响应包含工具调用
-        count = 1  # 重置对话轮次计数器
-        messages = []  # 清空对话历史
         for tool in message.tool_calls:  # 遍历所有工具调用
-            print(f"程序执行>\t 函数名:{tool.function.name}, 参数:{tool.function.arguments}")  # 打印工具调用信息
+            print(
+                f"程序执行>\t {tool.id} 函数名:{tool.function.name}, 参数:{tool.function.arguments}"
+            )  # 打印工具调用信息
             func1_name = tool.function.name  # 获取函数名
             func1_args = tool.function.arguments  # 获取函数参数
             func1_out = eval(f"{func1_name}(**{func1_args})")  # 动态执行函数
             print(f"程序执行>\t 函数返回值:{func1_out}")  # 打印函数返回值
-        print(f"assistant>\t {message.content}")  # 打印助手回复
+            messages.append(message)
+            messages.append(
+                {"role": "tool", "tool_call_id": tool.id, "content": func1_out}
+            )
+            message = send_messages(messages)
+            print(f"Model>\t {message.content}")
+        messages = _new_message()  # 重置对话历史
+        count = 1
     else:  # 如果没有工具调用
-        count = count + 1  # 增加对话轮次
-        messages.append({"role": "assistant", "content": message.content})  # 将助手回复加入对话历史
+        messages.append(message)  # 将助手回复加入对话历史
         print(f"assistant>\t {message.content}")  # 打印助手回复
