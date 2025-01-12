@@ -10,7 +10,8 @@ def send_messages(messages):
     :return: 返回API的响应消息对象
     """
     response = client.chat.completions.create(
-        model="qwen2.5:14b",
+        model="qwen2.5:7b",
+        #model="qwen2.5:14b",
         # model="MFDoom/deepseek-coder-v2-tool-calling:16b",
         # model="llama3-groq-tool-use:8b",
         # model="deepseek-chat",
@@ -156,7 +157,10 @@ def light_switch(position: str, status: str):
     :return: 包含位置和状态的字典
     """
     print(f"==> 调用light_switch函数，参数position={position},status={status}")
-    return f"位置:{position} 状态:{status}"
+    if position == "厕所":
+        return f"位置:{position} 状态:无法控制"
+    else:
+        return f"位置:{position} 状态:{status}"
 
 
 count = 1  # 对话轮次计数器
