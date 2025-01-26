@@ -1,33 +1,41 @@
 from openai import OpenAI
 import os
 
-
 # 发送消息到DeepSeek API并获取响应
-def send_messages(messages):
+def send_messages(messages, timeout=30):
     """
     发送消息到DeepSeek API并获取响应
     :param messages: 消息列表，包含用户和助手的对话历史
+    :param timeout: 请求超时时间(秒)
     :return: 返回API的响应消息对象
     """
-    response = client.chat.completions.create(
-        model="qwen2.5:7b",
-        #model="qwen2.5:14b",
-        # model="MFDoom/deepseek-coder-v2-tool-calling:16b",
-        # model="llama3-groq-tool-use:8b",
-        # model="deepseek-chat",
-        messages=messages,
-        tools=tools,
-        tool_choice="auto",
-        temperature=0,
-        # max_tokens=100,
-        top_p=1.0,
-        n=1,
-        stop=None,
-    )
-    return response.choices[0].message
-
+    try:
+        response = client.chat.completions.create(
+            model="qwen2.5:7b",
+            # model="qwen2.5:14b",
+            # model="MFDoom/deepseek-coder-v2-tool-calling:16b",
+            # model="llama3-groq-tool-use:8b",
+            # model="deepseek-chat",
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+            temperature=0,
+            # max_tokens=100,
+            top_p=1.0,
+            n=1,
+            stop=None,
+            timeout=timeout
+        )
+        return response.choices[0].message
+    except Exception as e:
+        print(f"API调用失败: {str(e)}")
+        raise
 
 # 初始化OpenAI客户端
+api_key = os.environ.get("KEY")
+if not api_key:
+    raise ValueError("未设置API密钥环境变量")
+
 client = OpenAI(
     api_key=os.environ.get("KEY") or "key",  # 从环境变量获取API密钥
     # base_url="https://api.deepseek.com",  # DeepSeek API地址
@@ -114,7 +122,6 @@ tools = [
     },
 ]
 
-
 # 获取指定地区的天气信息
 def get_weather(location: str):
     """
@@ -124,7 +131,6 @@ def get_weather(location: str):
     """
     print(f"==> 调用get_weather函数，参数location={location}")
     return f"location:{location} weather:晴 temp:25"
-
 
 # 呼叫指定电话号码
 def call_user(phone_number: str):
@@ -136,7 +142,6 @@ def call_user(phone_number: str):
     print(f"==> 调用call_user函数，参数phone_number={phone_number}")
     return f"phone_number:{phone_number} status:calling"
 
-
 # 为指定身体部位选择MRI扫描协议
 def select_protocol(position: str):
     """
@@ -146,7 +151,6 @@ def select_protocol(position: str):
     """
     print(f"==> 调用select_protocol函数，参数position={position}")
     return f"position:{position}, protocol:T1"
-
 
 # 控制指定位置的灯光状态
 def light_switch(position: str, status: str):
@@ -162,9 +166,7 @@ def light_switch(position: str, status: str):
     else:
         return f"位置:{position} 状态:{status}"
 
-
 count = 1  # 对话轮次计数器
-
 
 # 初始化新的对话消息
 def _new_message():
@@ -174,7 +176,6 @@ def _new_message():
             "content": "你是一个智能助手.你的回答必须使用中文,如果回答英文，你将会被禁言!",
         }
     ]
-
 
 messages = _new_message()  # 对话历史
 
